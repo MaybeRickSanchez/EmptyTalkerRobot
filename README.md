@@ -1,257 +1,128 @@
 # EmptyTalkerRobot
 
-**A lightweight, offline speech engine for games and robotics — built from hashed statistics, not an LLM.**
+**A speaking robot built on hashed statistics — not an LLM, not a chatbot.**
 
-[![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
-[![NumPy](https://img.shields.io/badge/dependency-NumPy-orange.svg)](https://numpy.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Offline](https://img.shields.io/badge/network-offline-success.svg)](#offline-by-design)
-[![LLM](https://img.shields.io/badge/LLM-none-lightgrey.svg)](#what-it-is-not)
+EmptyTalkerRobot is a single-file Python module that gives a robot the ability to speak. It is built on top of the `EmptyMicroRobot` decision core, imported as:
 
-**EmptyTalkerRobot** is a single-file Python speech system built on top of the
-[`EmptyMicroRobot`](https://github.com/MaybeRickSanchez/EmptyMicroRobot) decision core.
-
-It constructs utterances from **hashed word-position statistics**, measures a
-speaking persona from text, generates multiple candidate lines, lets the
-decision core select between them, and uses feedback to change future behavior.
-
-There is:
-
-* no pretrained language model,
-* no neural network,
-* no model tokenizer,
-* no model weights,
-* no inference server,
-* no cloud API,
-* and no network connection required at runtime.
-
-> **If the data is not there, the robot has nothing to say — and it says so.**
-
----
-
-## Table of Contents
-
-* [Why EmptyTalkerRobot?](#why-emptytalkerrobot)
-* [What It Is](#what-it-is)
-* [What It Is Not](#what-it-is-not)
-* [Architecture](#architecture)
-* [How It Works](#how-it-works)
-
-  * [`WordPositionIndex`](#1-wordpositionindex)
-  * [`Persona`](#2-persona)
-  * [`SpeechPlanner`](#3-speechplanner)
-  * [`FeedbackJudge`](#4-feedbackjudge)
-* [Installation](#installation)
-* [Quick Start](#quick-start)
-* [Core API](#core-api)
-* [Relations](#relations)
-* [Game Integration](#game-integration)
-* [Persistence](#persistence)
-* [Performance](#performance)
-* [Memory](#memory)
-* [Offline by Design](#offline-by-design)
-* [Limitations](#limitations)
-* [When to Use It](#when-to-use-it)
-* [When Not to Use It](#when-not-to-use-it)
-* [Development](#development)
-* [Contributing](#contributing)
-* [License](#license)
-
----
-
-## Why EmptyTalkerRobot?
-
-Modern language models solve a very different problem.
-
-If you need a general-purpose conversational system with broad world knowledge,
-semantic reasoning, long-form generation, and instruction following, an LLM is
-the appropriate class of technology.
-
-EmptyTalkerRobot deliberately targets a much smaller problem:
-
-> **Give an embodied agent a local, measurable, adaptable voice without shipping a language model.**
-
-This makes it interesting for:
-
-* game NPCs,
-* procedural characters,
-* small robots,
-* simulations,
-* offline applications,
-* privacy-sensitive environments,
-* low-resource deployments,
-* and experiments in non-neural language generation.
-
-The goal is not to reproduce an LLM.
-
-The goal is to explore what a useful speaking agent can do with:
-
-**statistics + bounded memory + a decision core + feedback.**
-
----
-
-# What It Is
-
-EmptyTalkerRobot is a constructive speech system.
-
-Instead of predicting tokens with a neural network, it builds sentences by walking
-a compact hashed positional transition structure extracted from text.
-
-The system combines four major components:
-
-| Component           | Purpose                                                         |
-| ------------------- | --------------------------------------------------------------- |
-| `WordPositionIndex` | Stores hashed word-position transition statistics               |
-| `Persona`           | Measures the speaking characteristics of a corpus               |
-| `SpeechPlanner`     | Plans length, seeds, transitions, and candidates                |
-| `FeedbackJudge`     | Scores generated utterances and feeds reward back into the core |
-
-The final candidate is selected through the `EmptyMicroRobot` decision mechanism.
-
----
-
-# What It Is Not
-
-EmptyTalkerRobot is intentionally **not**:
-
-* an LLM,
-* a chatbot,
-* a neural language model,
-* a semantic parser,
-* a general-purpose language understanding system,
-* a replacement for GPT, Claude, Gemini, or similar systems,
-* a question-answering engine,
-* a knowledge base,
-* or a general prose-generation system.
-
-It does not claim to understand what its words mean.
-
-Its linguistic behavior comes from statistical structure present in its source material.
-
----
-
-# Architecture
-
-```text
-                         ┌──────────────────┐
-                         │     Text Files    │
-                         └────────┬─────────┘
-                                  │
-                                  ▼
-                    ┌─────────────────────────┐
-                    │    WordPositionIndex    │
-                    │ hashed positional data  │
-                    └────────────┬────────────┘
-                                 │
-                                 ▼
-                    ┌─────────────────────────┐
-                    │        Persona          │
-                    │ formality / valence /   │
-                    │ aggression / etc.       │
-                    └────────────┬────────────┘
-                                 │
-                                 ▼
-User / Game Event ───────► ┌──────────────────┐
-                           │  SpeechPlanner   │
-                           └────────┬─────────┘
-                                    │
-                              candidates
-                                    │
-                                    ▼
-                           ┌──────────────────┐
-                           │ EmptyMicroRobot  │
-                           │ decision core    │
-                           └────────┬─────────┘
-                                    │
-                                    ▼
-                               Utterance
-                                    │
-                                    ▼
-                           ┌──────────────────┐
-                           │  FeedbackJudge   │
-                           └────────┬─────────┘
-                                    │
-                              reward / punish
-                                    │
-                                    ▼
-                           ┌──────────────────┐
-                           │ Learned feedback │
-                           └──────────────────┘
+```python
+from empty import EmptyRobot
 ```
 
-The important distinction is that the **language layer does not replace the
-decision core**.
+Every sentence this robot says is **constructed** from hashed statistics derived from text files you provide, scored by the decision core, and re-weighted by the feedback it receives.
 
-The decision core knows about features, traces, votes, rewards, and candidate
-selection.
+There is no pretrained encoder, no model tokenizer, no neural weights, no inference server, and no network connection.
 
-EmptyTalkerRobot supplies the language-specific structures needed to turn those
-decisions into speech.
+**If the data is not there, the robot has nothing to say — and it says so.**
+
+---
+
+## Read This First
+
+This is **not a chatbot**, and there is **no LLM anywhere in here**.
+
+Most criticism this project receives — including my own first reaction — comes from evaluating it as a conversational agent. That is the wrong benchmark.
+
+EmptyTalkerRobot is a **constructive language system for games and robotics**.
+
+It does not generate prose from a latent space. Instead, it:
+
+1. walks a hashed positional transition table,
+2. applies a measured persona,
+3. generates multiple candidate utterances,
+4. lets the decision core choose between them, and
+5. uses feedback to adjust its future behavior.
+
+It is not trying to compete with GPT on open-ended conversation.
+
+It is trying to do something different:
+
+> Give a game NPC or small robot a speaking personality that runs offline, updates in milliseconds, and never sends data anywhere.
+
+---
+
+## What This Project Is NOT
+
+* Not a chatbot
+* Not an LLM
+* Not a general-purpose language model
+* Not a parser
+* It does not understand language
+* Not a replacement for GPT, Claude, Gemini, or similar conversational systems
+* Not designed to write arbitrary prose
+* Not designed to answer trivia
+* Not designed to hold unrestricted conversations
+
+---
+
+## What This Project IS
+
+* A speaking robot built on a bounded hashed word-position store
+* A persona measurement engine
+* A sentence-length and candidate planner
+* A positional transition-table walker
+* A feedback loop that learns from good/bad responses
+* A system that can adapt its creativity based on feedback
+* Offline and network-free
+* CPU-friendly
+* Based on NumPy rather than neural inference
+* Suitable for games, NPCs, simulations, and small robotics projects
 
 ---
 
 # How It Works
 
+`EmptyMicroRobot` provides the underlying decision system.
+
+It is a bounded associative decision memory containing feature-hashed vectors, episodic traces, voting, bounded candidate generation, an empirical world model, hard safety constraints, and `reward()` / `punish()` mechanisms.
+
+The foundation does **not** know what a word is, what a sentence is, or how long an utterance should be.
+
+EmptyTalkerRobot adds the language-specific layer around it.
+
+It provides four main components:
+
+---
+
 ## 1. `WordPositionIndex`
 
-`WordPositionIndex` converts text into a compact hashed representation.
+The `WordPositionIndex` is a hashed word-position store.
 
-The pipeline is approximately:
+Text files are:
 
-```text
-text
-  ↓
-tokenization
-  ↓
-word positions
-  ↓
-64-bit hashing
-  ↓
-sorted positional columns
-  ↓
-transition statistics
-```
+1. read,
+2. tokenized into words,
+3. associated with their positions,
+4. hashed into 64-bit integers, and
+5. stored in compact sorted columns.
 
-Conceptually, the resulting structure records relationships such as:
+The resulting structure represents positional transitions such as:
 
-```text
-word A at position i
-        │
-        └──► word B
-              count = N
-```
+> after word `h` at position `i`, word `j` occurred next `n` times.
 
-The store does not need to retain a Python object for every transition.
+The system does not maintain Python string objects for every transition, sentence objects, or tuple-heavy structures.
 
-The original text is not kept as part of the transition representation.
+The original text is not retained by the transition store.
 
-### Why positional information?
-
-A simple unordered word-frequency table loses too much structure.
-
-Position-aware transitions retain information about **where words tend to occur
-relative to one another**, which provides the basic material required to construct
-short utterances.
+This makes the representation compact and bounded while still preserving enough statistical structure to construct new utterances.
 
 ---
 
 ## 2. `Persona`
 
-`Persona` measures how a character tends to speak.
+`Persona` measures the speaking characteristics of a corpus.
 
-Given a dialogue corpus, it can estimate dimensions such as:
+Point it at a character's dialogue and it can estimate properties such as:
 
-* formality,
-* aggression,
-* valence,
-* verbosity,
-* certainty,
-* lexical richness.
+* formality
+* aggression
+* valence
+* verbosity
+* certainty
+* lexical richness
 
-It can also identify phrases that are unusually common relative to a background
-corpus and retain dialogue lines as quotable expressions.
+It also identifies phrases that are over-represented relative to a background corpus and keeps dialogue lines as quotable expressions.
 
-Example:
+For example, given a character's complete dialogue:
 
 ```python
 talker.build_persona(
@@ -260,16 +131,9 @@ talker.build_persona(
 )
 ```
 
-There is no `Thanos`-specific implementation.
+the robot can derive a character-specific speaking profile without requiring character-specific code.
 
-The personality comes from the supplied data.
-
-### Important
-
-Persona measurements are intentionally lightweight.
-
-They are statistical heuristics based partly on hand-written lexical lists,
-not a psychological model.
+The persona is **measured from data rather than manually authored**.
 
 ---
 
@@ -277,97 +141,100 @@ not a psychological model.
 
 `SpeechPlanner` decides how an utterance should be constructed.
 
-For each call it can determine:
+For each response it can determine:
 
-* target sentence length,
-* seed words,
-* candidate starting points,
-* transition paths,
-* generation width,
-* and which completed candidates should be passed to the foundation.
+* approximate sentence length,
+* candidate seed words,
+* which transitions to follow,
+* how to walk the positional index,
+* and which completed candidates should be passed to the decision core.
 
-Conceptually:
+The planner can sample sentence lengths from learned distributions or use the constraints defined by a relation.
 
-```text
-input situation
-      │
-      ▼
-relation selection
-      │
-      ▼
-length planning
-      │
-      ▼
-seed selection
-      │
-      ▼
-transition walking
-      │
-      ▼
-candidate utterances
-      │
-      ▼
-decision core
-```
-
-The output is therefore **constructed**, not retrieved from a neural latent space.
+Several candidate lines can then be generated before the foundation chooses among them.
 
 ---
 
 ## 4. `FeedbackJudge`
 
-Feedback is part of the design rather than an external afterthought.
+`FeedbackJudge` evaluates whether an utterance was useful or undesirable.
 
-The judge combines two signals.
+It combines two independent sources of feedback.
 
-### Intrinsic score
+### Intrinsic evaluation
 
-The intrinsic evaluator can consider:
+The intrinsic judge checks properties such as:
 
-* required words,
-* target length,
-* repetition,
-* novelty,
-* persona fit,
-* and other structural properties.
+* required words are present,
+* the length is appropriate,
+* repetition is controlled,
+* the utterance is sufficiently novel,
+* the utterance fits the persona.
 
-### Learned score
+### Learned evaluation
 
-A second `EmptyRobot` instance learns from historical `good` / `bad`
-feedback attached to feature profiles of previous utterances.
+A second `EmptyRobot` instance learns from previous `good` / `bad` feedback associated with utterance feature profiles.
 
-The signals are combined into a signed reward.
+The two evaluations are combined into a signed reward.
 
-That reward is pushed back into the foundation:
+That reward is then pushed back into the foundation.
+
+The feedback loop ultimately affects the robot's `creativity` scalar and therefore influences future generation.
+
+---
+
+# Architecture
+
+At a high level:
 
 ```text
-utterance
-   │
-   ├──► intrinsic evaluation
-   │
-   └──► learned evaluation
-             │
-             ▼
-          combined reward
-             │
-             ▼
-       EmptyMicroRobot
-             │
-             ▼
-     future behavior changes
+                    Text Files
+                        │
+                        ▼
+              ┌──────────────────┐
+              │ WordPositionIndex │
+              └────────┬─────────┘
+                       │
+                       ▼
+              ┌──────────────────┐
+              │     Persona      │
+              └────────┬─────────┘
+                       │
+User Input ────────────┼─────────────┐
+                       ▼             │
+              ┌──────────────────┐   │
+              │  SpeechPlanner   │   │
+              └────────┬─────────┘   │
+                       │              │
+                       ▼              │
+                Candidate Lines      │
+                       │              │
+                       ▼              │
+              ┌──────────────────┐   │
+              │  EmptyMicroRobot │◄──┘
+              └────────┬─────────┘
+                       │
+                       ▼
+                    Utterance
+                       │
+                       ▼
+              ┌──────────────────┐
+              │  FeedbackJudge   │
+              └────────┬─────────┘
+                       │
+                 reward / punish
+                       │
+                       ▼
+              ┌──────────────────┐
+              │ Learned Feedback │
+              └──────────────────┘
 ```
-
-This feedback also influences the robot's `creativity` state.
 
 ---
 
 # Installation
 
-## Requirements
-
-* Python 3.9+
-* NumPy
-* `EmptyMicroRobot`
+EmptyTalkerRobot requires **NumPy** and the `EmptyMicroRobot` foundation.
 
 Install NumPy:
 
@@ -381,13 +248,13 @@ Clone the foundation:
 git clone https://github.com/MaybeRickSanchez/EmptyMicroRobot
 ```
 
-Make sure `empty.py` is importable:
+Make `empty.py` available on `sys.path`, or install it according to the foundation project's instructions.
+
+Your environment should ultimately be able to run:
 
 ```python
 from empty import EmptyRobot
 ```
-
-Then place `emptytalker.py` somewhere on your Python path.
 
 ---
 
@@ -398,98 +265,80 @@ from emptytalker import EmptyTalkerRobot
 
 talker = EmptyTalkerRobot()
 
-# Load source material
+# Add source material
 talker.ingest_txt("thanos.txt")
 
-# Build a speaking persona
+# Build a persona from dialogue
 talker.build_persona(
     "Thanos",
     dialogue_paths=["thanos.txt"]
 )
 
-# Generate speech
-utterance = talker.speak(
-    "hello there, what do you want?"
-)
+# Generate an utterance
+u = talker.speak("hello there, what do you want?")
 
-print(utterance.text)
-print(utterance.confidence)
+print(u.text)
+print(u.confidence)
 
 # Provide feedback
-utterance.reward()
+u.reward()
 # or:
-# utterance.punish()
+u.punish()
 
-# Inspect learning state
-print(
-    talker.stats()["feedback"]["creativity"]
-)
+# Inspect the feedback state
+print(talker.stats()["feedback"]["creativity"])
 
-# Explain the decision
-print(talker.explain(utterance))
+# Explain a specific decision
+print(talker.explain(u))
 
-# Print a compact report
+# Print a compact system report
 print(talker.report())
+
+# Save the robot
+talker.save("thanos.json")
+
+# Restore it later
+same = EmptyTalkerRobot.load("thanos.json")
 ```
 
----
-
-# Minimal Example
-
-The smallest possible setup is:
+The robot can also be created with no data:
 
 ```python
-from emptytalker import EmptyTalkerRobot
-
-robot = EmptyTalkerRobot()
-
-robot.ingest_txt("dialogue.txt")
-
-response = robot.speak("hello")
-
-print(response.text)
+talker = EmptyTalkerRobot()
 ```
 
-A robot can technically start with zero files:
-
-```python
-robot = EmptyTalkerRobot()
-```
-
-but without source material there is little or no linguistic structure from which
-to construct useful speech.
+In that state it has no corpus from which to construct language.
 
 ---
 
 # Core API
 
-| Method                       | Description                                         |
-| ---------------------------- | --------------------------------------------------- |
-| `speak(text)`                | Generate an utterance for an input situation.       |
-| `respond(text)`              | Alias for `speak()`.                                |
-| `voice(event)`               | Convert a game/event dictionary into an utterance.  |
-| `ingest_txt(path)`           | Add one or more `.txt` files to the hashed store.   |
-| `build_persona(name, ...)`   | Measure and install a speaking persona.             |
-| `add_relation(id, spec)`     | Register an input → output relationship.            |
-| `recall(query)`              | Recall previous speech associated with a situation. |
-| `decide(situation, options)` | Directly access the foundation's decision system.   |
-| `save(path)`                 | Persist the complete robot state.                   |
-| `load(path)`                 | Restore a saved robot.                              |
-| `stats()`                    | Return detailed runtime statistics.                 |
-| `report()`                   | Produce a compact human-readable report.            |
-| `explain(utterance)`         | Explain how an utterance was produced.              |
+| Method                       | Description                                                            |
+| ---------------------------- | ---------------------------------------------------------------------- |
+| `speak(text)`                | Generate an utterance from the input situation.                        |
+| `respond(text)`              | Alias for `speak()`.                                                   |
+| `voice(event)`               | Game-facing shorthand for turning an event dictionary into a line.     |
+| `ingest_txt(path)`           | Digest one or more `.txt` files into the hashed store.                 |
+| `build_persona(name)`        | Measure and install a speaking persona.                                |
+| `add_relation(id, spec)`     | Register a probable-input → probable-output relationship at runtime.   |
+| `recall(query)`              | Retrieve what the robot said when a similar situation occurred before. |
+| `decide(situation, options)` | Directly access the foundation's decision mechanism.                   |
+| `save(path)`                 | Persist the complete robot state.                                      |
+| `load(path)`                 | Restore a previously saved robot.                                      |
+| `stats()`                    | Return detailed runtime statistics.                                    |
+| `report()`                   | Return a compact human-readable report.                                |
+| `explain(utterance)`         | Explain the decisions behind a generated utterance.                    |
 
 ---
 
-# Game Integration
+# Using `voice()`
 
-The `voice()` method is intended as a convenient bridge between game logic and
-the speech system.
+For game and simulation code, `voice()` provides a convenient event-oriented interface.
 
 For example:
 
 ```python
-line = robot.voice({
+line = talker.voice({
     "event": "player_entered_room",
     "danger": True,
     "distance": 4
@@ -498,21 +347,20 @@ line = robot.voice({
 print(line.text)
 ```
 
-A game can therefore provide an event description rather than manually building
-a natural-language prompt for every situation.
+The exact event schema depends on the relations configured for the robot.
 
-Relations determine how game situations map onto speech behavior.
+This allows game code to describe **situations** instead of manually constructing dialogue prompts.
 
 ---
 
 # Relations
 
-Relations connect probable inputs to probable outputs.
+Relations connect probable situations to probable responses.
 
-For example:
+They can be registered at runtime:
 
 ```python
-robot.add_relation(
+talker.add_relation(
     "warning",
     {
         "input": ["danger", "enemy", "near"],
@@ -521,317 +369,314 @@ robot.add_relation(
 )
 ```
 
-Relations can be registered at runtime and persisted as part of the robot's
-configuration/state.
+The exact relation specification is defined by the implementation and can be persisted as part of the robot's JSON state.
 
-This makes it possible to reuse the same speech engine across multiple:
-
-* characters,
-* games,
-* robots,
-* environments,
-* and interaction models.
+This mechanism allows the same language system to be reused across different characters, games, and environments.
 
 ---
 
-# Persistence
+# The JSON Contract
 
-The entire robot can be saved to a JSON file:
+A single `.json` file acts as both an input configuration and a complete persisted robot state.
 
-```python
-robot.save("character.json")
-```
+On input, it can describe:
 
-and restored later:
+* the persona,
+* relations,
+* text files to digest,
+* and other configuration.
 
-```python
-robot = EmptyTalkerRobot.load("character.json")
-```
-
-The persisted state can include:
+After saving, it contains the learned state required to resume the robot, including:
 
 * persona measurements,
-* hashed word-position data,
-* relations,
+* the packed hashed word-position index,
 * experience history,
 * feedback history,
 * learned weights,
-* and other state required to resume operation.
+* and other persisted state.
 
-The JSON file therefore acts as both a configuration format and a saved robot
-state.
+Example:
+
+```python
+talker.save("thanos.json")
+
+same = EmptyTalkerRobot.load("thanos.json")
+```
+
+The goal is for the loaded robot to continue from the saved state rather than starting from scratch.
 
 ---
 
 # Performance
 
-Measured on a single laptop using:
+Measured on one laptop using:
 
-* NumPy,
-* a ~1,400-token corpus,
+* NumPy only,
+* a 1,400-token corpus,
 * a persona fitted from that corpus,
 * and a warmed foundation containing approximately 700 traces.
 
-### Latency
+Observed timings:
 
-| Operation            |     p50 |     p95 |
-| -------------------- | ------: | ------: |
-| `speak()`            |  6.2 ms |  9.6 ms |
-| `speak() + reward()` | 11.3 ms | 15.6 ms |
+```text
+speak()             p50  6.2 ms   p95  9.6 ms
+speak() + reward()  p50 11.3 ms   p95 15.6 ms
+```
 
-### Candidate width
+Generation time by candidate width:
 
-| Width |   Time |
-| ----: | -----: |
-|     2 | 3.8 ms |
-|     3 | 4.8 ms |
-|     5 | 6.7 ms |
-|     8 | 9.5 ms |
+```text
+width 2    3.8 ms
+width 3    4.8 ms
+width 5    6.7 ms
+width 8    9.5 ms
+```
 
-### Ingestion
+Ingestion:
 
 ```text
 ~55,000 tokens/s
 ```
 
-These numbers are workload-specific and should not be interpreted as universal
-benchmarks.
+The ingestion pass does not require a complete index rebuild.
 
-The intended workload is **turn-based or event-driven dialogue**, such as an NPC
-speaking after a player action.
+These measurements represent a **turn-based dialogue workload**, not a 60 Hz rendering workload.
 
-It is not designed to generate a fresh utterance every rendered frame.
+That makes the design appropriate for things such as:
+
+* one NPC line per player action,
+* game events,
+* interactive simulations,
+* small robots,
+* and other low-frequency conversational events.
+
+It is not intended to generate a new sentence every rendered frame.
 
 ---
 
-# Memory
+# Memory Characteristics
 
-The hashed representation is designed to benefit from repeated material.
+Memory usage was measured rather than inferred.
 
-Measured with a 12 KiB English prose sample:
+For one 12 KiB chunk of English prose:
 
 ```text
-Single copy:      ~38.7 bytes/token
-Same text ×30:     ~1.3 bytes/token
+38.7 bytes/token
 ```
 
-The underlying store is approximately:
+when stored once.
+
+The same text repeated 30 times:
 
 ```text
-O(distinct pairs)
+1.3 bytes/token
+```
+
+because the store is based on distinct transitions rather than retaining every copy of the original text.
+
+Conceptually:
+
+```text
+Memory ≈ O(distinct pairs)
 ```
 
 rather than:
 
 ```text
-O(total tokens)
+Memory ≈ O(total tokens)
 ```
 
-As a result, repeated transitions can become substantially cheaper to represent.
-
-Actual memory usage depends on corpus vocabulary, transition diversity, hashing,
-and implementation details.
-
----
-
-# Offline by Design
-
-EmptyTalkerRobot does not require:
-
-* an API key,
-* a cloud service,
-* an inference server,
-* a network connection,
-* a GPU,
-* model weights,
-* or remote inference.
-
-After installation and data ingestion, the speech pipeline can run locally.
-
-This can be useful for:
-
-* offline games,
-* embedded experiments,
-* private datasets,
-* disconnected environments,
-* local simulations,
-* and systems where external inference is undesirable.
-
----
-
-# Determinism and Data
-
-The system is fundamentally data-driven.
-
-If a concept, phrase, or transition does not exist in the supplied material, the
-system has no neural model from which to invent the missing knowledge.
-
-Depending on its thresholds and available statistics, it may decline to generate
-a response or construct something from related transitions.
-
-This property is intentional.
-
-It makes the system much more constrained than a general language model, but also
-makes its source data easier to inspect.
+Therefore, repeated material can become substantially cheaper to represent.
 
 ---
 
 # Limitations
 
-## No Semantic Understanding
+EmptyTalkerRobot is intentionally constrained.
 
-EmptyTalkerRobot does not construct a general semantic representation of language.
+Understanding these limitations is important before using it.
 
-It manipulates statistical relationships between hashed tokens and positions.
+## It Does Not Understand Language
 
-A fluent output should therefore not be interpreted as evidence of comprehension.
+The system does not build semantic representations of language.
 
----
+It walks a hashed positional transition structure.
 
-## Constructed Sentences Can Drift
+If the words required by a question never appeared in the training material, the system cannot magically acquire the missing knowledge.
 
-Sentences are assembled from observed transitions.
+Depending on the similarity and confidence thresholds, it may:
 
-Short utterances may remain close to the structure of the source corpus, while
-longer generations can become:
+* decline to answer, or
+* produce an utterance assembled from transitions that it has seen.
 
-* repetitive,
-* awkward,
-* grammatically inconsistent,
-* or semantically incoherent.
+A fluent-looking sentence is therefore **not evidence of understanding**.
 
 ---
 
-## Persona Is Heuristic
+## Sentences Are Constructed
 
-Persona dimensions are computed from counts and lexical heuristics.
+Sentences are assembled from transitions rather than retrieved wholesale from a language model.
 
-They are not:
+Grammaticality therefore comes from the source corpus.
 
-* psychological measurements,
-* validated personality tests,
-* or scientific models of human personality.
+Short outputs may work well, while longer outputs can drift, repeat, or become structurally awkward.
 
-They are simply useful control signals for a procedural speech system.
+---
+
+## Persona Is Measured, Not Authored
+
+The persona dimensions are computed from counts and hand-written lexical lists.
+
+The measurements are intentionally simple.
+
+They are:
+
+* crude,
+* inspectable,
+* documented,
+* and overridable through configuration.
+
+They should not be interpreted as a scientifically validated psychological model.
 
 ---
 
 ## Feedback Quality Matters
 
-The learned good/bad judge depends on the quality of the feedback it receives.
+The learned good/bad judge can only learn from the feedback it receives.
 
-Inconsistent feedback can produce inconsistent learned preferences.
+If you provide poor or inconsistent feedback, the learned judge can learn poor or inconsistent preferences.
 
-With little feedback, behavior naturally relies more heavily on intrinsic scoring.
+With little or no feedback, the system falls back toward its intrinsic scoring behavior.
 
 ---
 
 ## Confidence Is Not Probability
 
-The confidence value comes from the foundation's heuristic composition.
+The confidence value is based on the foundation's documented heuristic composition.
 
-It should not automatically be interpreted as:
+It is **not a calibrated probability**.
 
-```text
-P(correct)
-```
-
-or any other calibrated probability.
-
-If probabilistic interpretation matters for your application, inspect the
-foundation's calibration report:
+If you need probabilistic interpretation, inspect the foundation's:
 
 ```python
 calibration_report()
 ```
 
----
-
-## Hash Collisions
-
-The transition store uses 64-bit hashes.
-
-Hash collisions are therefore possible.
-
-A collision can cause distinct words to share a representation.
-
-This is a deliberate trade-off between compactness, speed, and representation
-fidelity.
+before treating confidence values as probabilities.
 
 ---
 
-# When to Use EmptyTalkerRobot
+## Hashing Is Lossy
 
-EmptyTalkerRobot is particularly suited to projects where you want:
+The word-position store uses 64-bit hashes.
 
-* procedural NPC speech,
-* character-specific dialogue behavior,
-* local/offline generation,
-* small CPU footprints,
-* fast response times,
-* feedback-driven adaptation,
-* inspectable generation,
-* bounded data structures,
-* or experimentation with non-neural language systems.
+Hash collisions are therefore theoretically possible.
+
+A collision can silently merge two distinct words into the same hashed representation.
+
+This is an intentional trade-off for compactness and bounded storage.
 
 ---
 
-# When Not to Use It
+# Design Philosophy
 
-A modern language model is generally the more appropriate technology when the
-application requires:
+EmptyTalkerRobot deliberately chooses a different point in the design space from neural language models.
 
-* broad factual knowledge,
-* semantic reasoning,
+It prioritizes:
+
+* deterministic and inspectable data structures,
+* bounded memory,
+* local execution,
+* low latency,
+* no network access,
+* no pretrained model,
+* incremental feedback,
+* simple deployment,
+* and suitability for constrained environments.
+
+The result is not a general conversational intelligence.
+
+It is a **small constructive speech system** that can give an embodied agent a measurable and adaptable voice.
+
+---
+
+# When To Use It
+
+EmptyTalkerRobot can be useful when you need:
+
+* NPC dialogue generated from a specific corpus
+* offline game characters
+* lightweight robotic speech
+* procedural character personalities
+* small CPU-only deployments
+* privacy-sensitive local processing
+* fast feedback-driven adaptation
+* reproducible and inspectable generation
+* a speech system without model weights or an inference server
+
+---
+
+# When Not To Use It
+
+Use a modern language model instead if you need:
+
+* broad world knowledge,
 * reliable question answering,
+* semantic reasoning,
 * long-form coherent writing,
-* complex instruction following,
-* robust multi-turn dialogue,
+* robust multi-turn conversation,
 * translation,
 * summarization,
+* complex instruction following,
 * or general-purpose natural-language understanding.
 
-EmptyTalkerRobot is intentionally not designed for these goals.
+EmptyTalkerRobot is intentionally not designed for those tasks.
 
 ---
 
-# Example: Character Pipeline
+# Example Workflow
 
-A complete character setup can look like this:
+A typical NPC pipeline might look like this:
 
 ```python
 from emptytalker import EmptyTalkerRobot
 
 robot = EmptyTalkerRobot()
 
-# Source material
+# 1. Load the character's source material
 robot.ingest_txt("character_dialogue.txt")
 
-# Character voice
+# 2. Measure the character's speaking style
 robot.build_persona(
     "Character",
     dialogue_paths=["character_dialogue.txt"]
 )
 
-# Game situations
-robot.add_relation("greeting", greeting_relation)
-robot.add_relation("combat", combat_relation)
-robot.add_relation("warning", warning_relation)
+# 3. Configure game situations
+robot.add_relation(
+    "greeting",
+    greeting_relation
+)
 
-# Runtime speech
+robot.add_relation(
+    "combat",
+    combat_relation
+)
+
+# 4. Generate speech during gameplay
 utterance = robot.voice({
     "event": "combat_started"
 })
 
 print(utterance.text)
 
-# Feedback
+# 5. Give the robot feedback
 if player_reaction_was_good:
     utterance.reward()
 else:
     utterance.punish()
 
-# Persist state
+# 6. Persist the learned state
 robot.save("character.json")
 ```
 
@@ -841,175 +686,27 @@ On the next run:
 robot = EmptyTalkerRobot.load("character.json")
 ```
 
-The robot can continue from its saved state.
+The robot can continue from its persisted state.
 
 ---
 
-# Design Philosophy
+# Offline by Design
 
-EmptyTalkerRobot intentionally explores a different design space from neural
-language models.
+EmptyTalkerRobot does not require:
 
-The priorities are:
+* an API key,
+* an inference server,
+* a cloud account,
+* a network connection,
+* GPU inference,
+* or a remote model.
 
-```text
-bounded memory
-      +
-simple statistics
-      +
-local execution
-      +
-fast decisions
-      +
-measurable persona
-      +
-feedback
-      =
-procedural speech
-```
+Once its dependencies and source data are available, the complete generation loop can run locally.
 
-The resulting system is small enough to inspect and experiment with while still
-providing enough structure for an embodied agent to produce characterful speech.
-
-It is not intended to reproduce the capabilities of large neural models.
-
-It is intended to answer a different question:
-
-> **How much useful speech behavior can a small offline agent obtain from
-> statistics, memory, planning, and feedback?**
-
----
-
-# Development
-
-Clone the repository and create a local environment:
-
-```bash
-git clone <your-repository-url>
-cd EmptyTalkerRobot
-
-python -m venv .venv
-```
-
-Activate the environment.
-
-### Linux / macOS
-
-```bash
-source .venv/bin/activate
-```
-
-### Windows
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-Install dependencies:
-
-```bash
-pip install numpy
-```
-
-Then make sure the `EmptyMicroRobot` foundation is importable:
-
-```python
-from empty import EmptyRobot
-```
-
----
-
-# Suggested Project Layout
-
-A typical repository can be organized as:
-
-```text
-EmptyTalkerRobot/
-├── emptytalker.py
-├── README.md
-├── LICENSE
-├── requirements.txt
-├── examples/
-│   ├── basic.py
-│   └── npc.py
-├── data/
-│   └── example_dialogue.txt
-└── tests/
-    └── ...
-```
-
-A minimal `requirements.txt`:
-
-```text
-numpy
-```
-
----
-
-# Contributing
-
-Contributions are welcome.
-
-Useful areas for experimentation include:
-
-* more compact indexing strategies,
-* better candidate planning,
-* improved persona measurements,
-* alternative feedback signals,
-* collision mitigation,
-* benchmark tooling,
-* memory optimization,
-* deterministic generation modes,
-* additional game integrations,
-* and better diagnostics.
-
-Before submitting a large change, it is useful to open an issue describing the
-design and intended behavior.
-
-When contributing, please keep the project's core constraint in mind:
-
-> **EmptyTalkerRobot is intentionally not an LLM.**
-
-Features that require neural model inference should generally remain outside the
-core design.
+This makes it suitable for environments where network access is unavailable, undesirable, or restricted.
 
 ---
 
 # License
 
-MIT License.
-
-See [`LICENSE`](LICENSE) for the complete license text.
-
----
-
-# Credits
-
-EmptyTalkerRobot is built on the decision core provided by
-[`EmptyMicroRobot`](https://github.com/MaybeRickSanchez/EmptyMicroRobot).
-
----
-
-# Final Summary
-
-**EmptyTalkerRobot is a small, offline, constructive speech engine for games and robotics.**
-
-It:
-
-* learns statistical word-position transitions from text,
-* measures a speaking persona,
-* plans sentence construction,
-* generates multiple candidates,
-* lets a decision core choose between them,
-* learns from reward and punishment,
-* persists its state,
-* and runs locally without an LLM.
-
-It does **not** understand language.
-
-It does **not** contain an LLM.
-
-It does **not** attempt to replace general-purpose conversational AI.
-
-It is a deliberately constrained tool for giving small agents a procedural,
-measurable, and adaptable voice.
+MIT [`LICENSE`](LICENSE).
